@@ -326,7 +326,17 @@ async def vision_analyze_tool(
         logger.info("User prompt: %s", user_prompt[:100])
         
         # Determine if this is a local file path or a remote URL
-        local_path = Path(os.path.expanduser(image_url))
+        # On Windows with Git Bash, paths like /h/Hermes/... need conversion
+        # to native Windows paths (H:\Hermes\...) for Path.is_file() to work.
+        resolved_url = image_url
+        if os.name == "nt" and resolved_url.startswith("/"):
+            import re as _re
+            _m = _re.match(r"^/([a-zA-Z])/(.*)$", resolved_url)
+            if _m:
+                _drive = _m.group(1).upper()
+                _rest = _m.group(2).replace("/", os.sep)
+                resolved_url = _drive + ":" + os.sep + _rest
+        local_path = Path(os.path.expanduser(resolved_url))
         if local_path.is_file():
             # Local file path (e.g. from platform image cache) -- skip download
             logger.info("Using local image file: %s", image_url)
